@@ -47,11 +47,11 @@ pip install -r requirements.txt
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+Today's Schedule for Jordan
+
+08:00  Mochi: Medication (daily, pending)
+08:15  Mochi: Feeding (daily, pending)
+08:30  Barkley: Morning walk (daily, pending)
 ```
 
 ## 🧪 Testing PawPal+
@@ -67,7 +67,12 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+collected 7 items
+
+tests/test_scheduler.py .......                                          [100%]
+
+============================== 7 passed in 0.03s ===============================
 ```
 
 ## 📐 Smarter Scheduling
@@ -76,19 +81,19 @@ Sample test output:
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting | `PawPalScheduler.build_daily_plan` | Sorts by priority (high → medium → low), then shorter duration, then original order for stable ties |
+| Filtering | `PawPalScheduler.build_daily_plan` | Skips a task if its duration exceeds the remaining time budget, and records why |
+| Conflict handling | `DailyPlan.total_scheduled_minutes` / `remaining_minutes` | Tasks are laid back-to-back from the start time, so no two occupy the same slot |
+| Recurring tasks | — | Not implemented; noted as a future improvement in `reflection.md` |
 
 ## 📸 Demo Walkthrough
 
 Describe your app in numbered steps so a reader can follow along without watching a video:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+1. Launch the app with `python -m streamlit run app.py` and open the local URL.
+2. Enter the owner name, pet name, and species, then set a start time and the total minutes available for the day.
+3. Add a few care tasks — each with a title, duration in minutes, and a priority of low/medium/high. Added tasks appear in the "Current tasks" table.
+4. Click **Generate schedule**. The app converts your entries into scheduler objects and builds a daily plan.
+5. Review the results: scheduled tasks show start/end times and a short reason for inclusion, while any task that did not fit the time budget is listed under "Skipped tasks" with an explanation.
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
