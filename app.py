@@ -1,4 +1,95 @@
-import streamlit as st
+from datetime import time
+
+try:
+    import streamlit as st
+except ImportError:
+    class _FallbackSessionState(dict):
+        def __getattr__(self, key: str):
+            try:
+                return self[key]
+            except KeyError as exc:
+                raise AttributeError(key) from exc
+
+        def __setattr__(self, key: str, value):
+            self[key] = value
+
+
+    class _FallbackContext:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+
+    class _FallbackStreamlit:
+        def __init__(self):
+            self.session_state = _FallbackSessionState()
+
+        def set_page_config(self, *args, **kwargs):
+            return None
+
+        def title(self, *args, **kwargs):
+            return None
+
+        def markdown(self, *args, **kwargs):
+            return None
+
+        def divider(self):
+            return None
+
+        def subheader(self, *args, **kwargs):
+            return None
+
+        def text_input(self, _label, value=""):
+            return value
+
+        def selectbox(self, _label, options, index=0):
+            return options[index]
+
+        def time_input(self, _label, value):
+            return value
+
+        def number_input(self, _label, *, min_value=None, max_value=None, value=0, step=1):
+            return value
+
+        def caption(self, *args, **kwargs):
+            return None
+
+        def columns(self, count):
+            return tuple(_FallbackContext() for _ in range(count))
+
+        def form(self, *args, **kwargs):
+            return _FallbackContext()
+
+        def form_submit_button(self, *args, **kwargs):
+            return False
+
+        def button(self, *args, **kwargs):
+            return False
+
+        def write(self, *args, **kwargs):
+            return None
+
+        def table(self, *args, **kwargs):
+            return None
+
+        def info(self, *args, **kwargs):
+            return None
+
+        def success(self, *args, **kwargs):
+            return None
+
+        def warning(self, *args, **kwargs):
+            return None
+
+        def expander(self, *args, **kwargs):
+            return _FallbackContext()
+
+
+    st = _FallbackStreamlit()
+
+from pawpal_system import Owner, Pet, Scheduler, Task
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -38,51 +129,98 @@ At minimum, your system should:
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
+st.subheader("Owner Setup")
 owner_name = st.text_input("Owner name", value="Jordan")
-pet_name = st.text_input("Pet name", value="Mochi")
-species = st.selectbox("Species", ["dog", "cat", "other"])
 
-st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+if "owner" not in st.session_state:
+    st.session_state.owner = Owner(name=owner_name)
 
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
+st.session_state.owner.name = owner_name
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    task_title = st.text_input("Task title", value="Morning walk")
-with col2:
-    duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
-with col3:
-    priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
+st.subheader("Add a Pet")
+with st.form("add_pet_form", clear_on_submit=True):
+    pet_name = st.text_input("Pet name", value="Mochi")
+    species = st.selectbox("Species", ["dog", "cat", "other"])
+    add_pet = st.form_submit_button("Add Pet")
 
-if st.button("Add task"):
-    st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
-    )
+if add_pet:
+    existing_pet_names = {pet.name for pet in st.session_state.owner.pets}
+    if pet_name and pet_name not in existing_pet_names:
+        st.session_state.owner.add_pet(Pet(name=pet_name, species=species))
+        st.success(f"Added {pet_name} to {st.session_state.owner.name}'s pets.")
+    elif pet_name in existing_pet_names:
+        st.warning(f"{pet_name} is already on the list.")
 
-if st.session_state.tasks:
-    st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+if st.session_state.owner.pets:
+    st.write("Current pets:")
+    st.table([
+        {"Name": pet.name, "Species": pet.species, "Tasks": len(pet.tasks)}
+        for pet in st.session_state.owner.pets
+    ])
 else:
-    st.info("No tasks yet. Add one above.")
+    st.info("No pets yet. Add one above.")
 
 st.divider()
 
-st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.subheader("Add a Task")
+if st.session_state.owner.pets:
+    with st.form("add_task_form", clear_on_submit=True):
+        selected_pet_name = st.selectbox("Assign to pet", [pet.name for pet in st.session_state.owner.pets])
+        task_description = st.text_input("Task description", value="Morning walk")
+        task_time = st.time_input("Task time", value=time(8, 0))
+        frequency = st.selectbox("Frequency", ["once", "daily", "weekly"])
+        add_task = st.form_submit_button("Add Task")
+
+    if add_task:
+        selected_pet = next((pet for pet in st.session_state.owner.pets if pet.name == selected_pet_name), None)
+        if selected_pet is not None:
+            selected_pet.add_task(Task(description=task_description, time=task_time, frequency=frequency))
+            st.success(f"Added '{task_description}' to {selected_pet_name}.")
+else:
+    st.caption("Add a pet first, then you can assign tasks to it.")
+
+if st.session_state.owner.pets:
+    st.write("Current tasks:")
+    task_rows = []
+    for pet in st.session_state.owner.pets:
+        for task in pet.tasks:
+            task_rows.append(
+                {
+                    "Pet": pet.name,
+                    "Task": task.description,
+                    "Time": task.time.strftime("%H:%M"),
+                    "Frequency": task.frequency,
+                    "Done": task.completion_status,
+                }
+            )
+
+    if task_rows:
+        st.table(task_rows)
+    else:
+        st.info("No tasks yet. Add one above.")
+
+st.divider()
+
+st.subheader("Today's Schedule")
+st.caption("This uses the Scheduler from pawpal_system.py to gather tasks across all pets.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+    scheduler = Scheduler()
+    schedule = scheduler.get_todays_schedule(st.session_state.owner)
+
+    if schedule:
+        st.success(f"Today's Schedule for {st.session_state.owner.name}")
+        st.table(
+            [
+                {
+                    "Time": item.time,
+                    "Pet": item.pet_name,
+                    "Task": item.task_description,
+                    "Frequency": item.frequency,
+                    "Completed": item.completion_status,
+                }
+                for item in schedule
+            ]
+        )
+    else:
+        st.warning("Add a pet and at least one task before generating a schedule.")
