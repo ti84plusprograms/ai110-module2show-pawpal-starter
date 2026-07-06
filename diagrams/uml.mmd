@@ -1,48 +1,102 @@
 classDiagram
-    class OwnerProfile {
+    %% =========================================================================
+    %% DOMAIN LAYER: Owner → Pet → Task (Composition Chain)
+    %% =========================================================================
+
+    class Owner {
+        %% Attributes
         +name: str
-        +preferred_start_time: time
-        +available_minutes: int
+        +pets: list[Pet]
+
+        %% Methods
+        +add_pet(pet: Pet) void
+        +get_all_tasks() list[tuple[Pet, Task]]
     }
 
-    class PetProfile {
+    class Pet {
+        %% Attributes
         +name: str
         +species: str
+        +tasks: list[Task]
+
+        %% Methods
+        +add_task(task: Task) void
+        +get_tasks() list[Task]
     }
 
-    class CareTask {
-        +title: str
-        +duration_minutes: int
-        +priority: str
-        +notes: str
+    class Task {
+        %% Attributes (Core: description, time, recurrence)
+        +description: str
+        +time: time
+        +frequency: str
+        +completion_status: bool
+        +due_date: date
+
+        %% Methods (Recurrence Logic)
+        +mark_complete() Task | None
+        +create_next_occurrence() Task | None
+
+        %% Private Helpers
+        -_recurrence_delta() timedelta | None
     }
 
-    class ScheduledTask {
-        +title: str
-        +start_time: str
-        +end_time: str
-        +duration_minutes: int
-        +priority: str
-        +reason: str
-    }
+    %% =========================================================================
+    %% OUTPUT LAYER: ScheduledItem (View/Display Data Class)
+    %% =========================================================================
 
-    class DailyPlan {
-        +owner_name: str
+    class ScheduledItem {
+        %% Data fields (immutable snapshot for display)
         +pet_name: str
-        +species: str
-        +start_time: str
-        +available_minutes: int
-        +scheduled_tasks: list
-        +skipped_tasks: list
-        +total_scheduled_minutes() int
-        +remaining_minutes() int
+        +task_description: str
+        +time: str
+        +due_date: str
+        +frequency: str
+        +completion_status: bool
     }
 
-    class PawPalScheduler {
-        +build_daily_plan(owner, pet, tasks) DailyPlan
+    %% =========================================================================
+    %% SERVICE LAYER: Scheduler (Orchestrator with 6 Key Methods)
+    %% =========================================================================
+
+    class Scheduler {
+        %% Sorting & Filtering (read-only operations)
+        +sort_by_time(tasks: Iterable[tuple[Pet,Task]]) list[tuple[Pet,Task]]
+        +filter_tasks(owner: Owner, pet_name*: str|None, completion_status*: bool|None, due_date*: date|None) list[tuple[Pet,Task]]
+
+        %% State Mutation (completion workflow)
+        +mark_task_complete(owner: Owner, pet_name: str, task_description: str) Task|None
+
+        %% Analysis (conflict detection)
+        +detect_conflicts(owner: Owner) list[str]
+
+        %% Schedule Building (composition of above)
+        +build_schedule(owner: Owner) list[ScheduledItem]
+        +get_todays_schedule(owner: Owner) list[ScheduledItem]
     }
 
-    PawPalScheduler --> OwnerProfile : builds plan for
-    PawPalScheduler --> PetProfile : builds plan for
-    PawPalScheduler --> CareTask : sorts and schedules
-    DailyPlan --> ScheduledTask : contains
+    %% =========================================================================
+    %% RELATIONSHIPS
+    %% =========================================================================
+
+    %% COMPOSITION: Strong ownership, lifecycle dependency
+    Owner "1" *-- "*" Pet : contains/owns
+    Pet "1" *-- "*" Task : contains/owns
+
+    %% DEPENDENCIES: Scheduler operates on domain objects
+    Scheduler --> Owner : queries/modifies via
+    Scheduler --> Pet : accessed through Owner
+    Scheduler --> Task : sorts/filters/completes
+    Scheduler --> ScheduledItem : creates from Task
+
+    %% RECURRENCE: Task creates next occurrence of itself
+    Task --|> Task : generates next via create_next_occurrence()
+
+    %% =========================================================================
+    %% ANNOTATIONS & NOTES
+    %% =========================================================================
+
+    note "COMPOSITION CHAIN\nOwner → Pet → Task\nHierarchical ownership:\nOne Owner can have many Pets,\neach Pet can have many Tasks"
+
+    note "SCHEDULER WORKFLOWS\n\nsorting: sort_by_time(tasks) → time ASC, pet name, description\n\nfiltering: filter_tasks(owner, pet_name?, completion_status?, due_date?) → filtered tasks\n\ncompletion: mark_task_complete(owner, pet_name, task_desc)\n  ├─ Task.mark_complete() → returns next Task (if daily/weekly)\n  └─ Pet.add_task(next_occurrence)\n\nconflict: detect_conflicts(owner) → warns if pending tasks\n  share date AND time (ignores completed tasks)\n\nschedule: get_todays_schedule(owner)\n  ├─ filter_tasks(due_date=today)\n  ├─ sort_by_time()\n  └─ convert to ScheduledItem list"
+
+    note "PHASE 1 → FINAL CHANGES\n\nREMOVED (not in implementation):\n• preferred_start_time (Owner)\n• available_minutes (Owner/DailyPlan)\n• duration_minutes (Task/ScheduledTask)\n• priority (Task/ScheduledTask)\n• notes (CareTask)\n• skipped_tasks (DailyPlan)\n\nADDED (now in implementation):\n• frequency (Task) - 'once'/'daily'/'weekly'\n• completion_status (Task) - bool flag\n• due_date (Task) - date object\n• recurrence logic (Task methods)\n• explicit composition (Owner.pets, Pet.tasks)\n• ScheduledItem as separate view class\n• Scheduler as 6-method service"

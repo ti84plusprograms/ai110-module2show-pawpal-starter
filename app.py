@@ -202,25 +202,111 @@ if st.session_state.owner.pets:
 st.divider()
 
 st.subheader("Today's Schedule")
-st.caption("This uses the Scheduler from pawpal_system.py to gather tasks across all pets.")
+st.caption("Tasks are automatically sorted by time. Use filters and conflict detection below.")
 
-if st.button("Generate schedule"):
-    scheduler = Scheduler()
-    schedule = scheduler.get_todays_schedule(st.session_state.owner)
+scheduler = Scheduler()
 
-    if schedule:
-        st.success(f"Today's Schedule for {st.session_state.owner.name}")
+if st.session_state.owner.pets:
+    col1, col2 = st.columns(2)
+
+    with col1:
+        filter_pet = st.selectbox(
+            "Filter by pet",
+            ["All"] + [pet.name for pet in st.session_state.owner.pets],
+            key="pet_filter"
+        )
+
+    with col2:
+        filter_status = st.selectbox(
+            "Filter by status",
+            ["All", "Pending", "Completed"],
+            key="status_filter"
+        )
+
+    pet_name_filter = None if filter_pet == "All" else filter_pet
+    completion_filter = None
+    if filter_status == "Pending":
+        completion_filter = False
+    elif filter_status == "Completed":
+        completion_filter = True
+
+    filtered_tasks = scheduler.filter_tasks(
+        st.session_state.owner,
+        pet_name=pet_name_filter,
+        completion_status=completion_filter
+    )
+
+    sorted_tasks = scheduler.sort_by_time(filtered_tasks)
+
+    if sorted_tasks:
+        st.success(f"Showing {len(sorted_tasks)} task(s) for {st.session_state.owner.name}")
         st.table(
             [
                 {
-                    "Time": item.time,
-                    "Pet": item.pet_name,
-                    "Task": item.task_description,
-                    "Frequency": item.frequency,
-                    "Completed": item.completion_status,
+                    "Time": task.time.strftime("%H:%M"),
+                    "Pet": pet.name,
+                    "Task": task.description,
+                    "Frequency": task.frequency,
+                    "Status": "✓ Done" if task.completion_status else "⏳ Pending",
                 }
-                for item in schedule
+                for pet, task in sorted_tasks
             ]
         )
     else:
-        st.warning("Add a pet and at least one task before generating a schedule.")
+        st.info("No tasks match the current filters.")
+
+st.divider()
+
+st.subheader("Conflict Detection")
+st.caption("Identifies when multiple pending tasks are scheduled for the same time.")
+
+if st.session_state.owner.pets:
+    warnings = scheduler.detect_conflicts(st.session_state.owner)
+
+    if warnings:
+        st.warning("⚠️ Scheduling conflicts detected!")
+        for warning in warnings:
+            st.warning(warning)
+    else:
+        st.success("✅ No scheduling conflicts.")
+else:
+    st.info("Add a pet and tasks to check for conflicts.")
+
+st.divider()
+
+st.subheader("Mark Task Complete")
+st.caption("Complete a task and generate its next recurring occurrence if applicable.")
+
+if st.session_state.owner.pets:
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        pet_to_complete = st.selectbox(
+            "Select pet",
+            [pet.name for pet in st.session_state.owner.pets],
+            key="complete_pet_select"
+        )
+
+    selected_pet = next((pet for pet in st.session_state.owner.pets if pet.name == pet_to_complete), None)
+    pending_tasks = [task for task in selected_pet.tasks if not task.completion_status] if selected_pet else []
+
+    with col2:
+        task_to_complete = st.selectbox(
+            "Select pending task",
+            [task.description for task in pending_tasks] if pending_tasks else ["No pending tasks"],
+            key="complete_task_select"
+        )
+
+    with col3:
+        if st.button("Mark Complete", key="mark_complete_btn"):
+            if pending_tasks and task_to_complete != "No pending tasks":
+                next_task = scheduler.mark_task_complete(st.session_state.owner, pet_to_complete, task_to_complete)
+                if next_task:
+                    st.success(f"✓ Completed '{task_to_complete}'. Next occurrence scheduled for {next_task.due_date.isoformat()}.")
+                else:
+                    st.success(f"✓ Completed '{task_to_complete}'.")
+                st.rerun()
+            else:
+                st.warning("Select a pending task to mark complete.")
+else:
+    st.caption("Add a pet and tasks first.")
