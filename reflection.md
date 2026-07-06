@@ -31,7 +31,7 @@ The scheduler considers two constraints: **priority** (high → medium → low) 
 
 Within the same priority level, shorter tasks are scheduled first. This is a greedy "fit more in" rule — it maximizes the *number* of tasks completed rather than guaranteeing that a particular long task runs. That is reasonable here because most pet-care items are short and interchangeable in timing; getting more of them done is more useful than protecting one long task. The downside is that a long, equally-important task can get bumped to the end and skipped.
 
-Another tradeoff is that conflict detection only checks for exact time matches on the same day. That keeps the scheduler lightweight and easy to explain, but it does not catch tasks that overlap in duration if they start at different times.
+Another tradeoff is that conflict detection only checks for exact date-and-time matches between pending tasks (across any scheduled date, ignoring completed tasks). That keeps the scheduler lightweight and easy to explain, but it does not catch tasks that overlap in duration if they start at different times.
 
 ---
 

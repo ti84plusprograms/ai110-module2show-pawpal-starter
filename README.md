@@ -56,24 +56,30 @@ Today's Schedule for Jordan
 
 ## 🧪 Testing PawPal+
 
+Run the test suite with:
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+These tests cover the key PawPal+ behaviors: task sorting, filtering, recurring-task handling, completion flow, conflict warnings, and schedule output consistency.
 
-```
+Successful test run output:
+
+```text
 ============================= test session starts ==============================
-collected 7 items
+platform darwin -- Python 3.10.6, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/ary/Documents/GitHub/ai110-module2show-pawpal-starter
+plugins: anyio-4.14.1
+collected 42 items                                                              
 
+tests/test_pawpal.py ...................................                 [ 83%]
 tests/test_scheduler.py .......                                          [100%]
 
-============================== 7 passed in 0.03s ===============================
+============================== 42 passed in 0.04s ===============================
 ```
+
+Confidence level: ★★★★☆
 
 ## 📐 Smarter Scheduling
 
@@ -81,7 +87,7 @@ tests/test_scheduler.py .......                                          [100%]
 |---------|-----------|-------|
 | Task sorting | `Scheduler.sort_by_time()` | Sorts tasks by time, then pet name, then task description for stable ordering. |
 | Filtering | `Scheduler.filter_tasks()` | Filters by pet name, completion status, or due date. |
-| Conflict detection | `Scheduler.detect_conflicts()` | Returns warning messages when two or more tasks share the same exact time on the same day. |
+| Conflict detection | `Scheduler.detect_conflicts()` | Returns warning messages when two or more **pending** tasks share the same date and exact time, on any scheduled date (not just today). Completed tasks are ignored. |
 | Recurring tasks | `Task.mark_complete()` / `Task.create_next_occurrence()` / `Scheduler.mark_task_complete()` | Marks daily or weekly tasks complete and creates the next occurrence using `timedelta(days=1)` or `timedelta(days=7)`. |
 
 ## 📸 Demo Walkthrough

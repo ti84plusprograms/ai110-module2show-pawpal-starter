@@ -151,9 +151,13 @@ class Scheduler:
         return None
 
     def detect_conflicts(self, owner: Owner) -> list[str]:
-        """Return warning strings for tasks that share an exact same-day time."""
+        """Return warning strings for pending tasks that share a date and time.
+
+        Conflicts are detected across every scheduled date, not just today, and
+        completed tasks are ignored since they no longer compete for attention.
+        """
         grouped_tasks: dict[tuple[date, time], list[tuple[Pet, Task]]] = defaultdict(list)
-        for pet, task in self.filter_tasks(owner, due_date=date.today()):
+        for pet, task in self.filter_tasks(owner, completion_status=False):
             grouped_tasks[(task.due_date, task.time)].append((pet, task))
 
         warnings: list[str] = []
