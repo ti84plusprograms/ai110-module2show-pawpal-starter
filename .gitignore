@@ -3,3 +3,9 @@ __pycache__/
 .venv_new/
 .pytest_cache/
 .DS_Store
+
+# Reference documentation (for local use only)
+ARCHITECTURE.md
+DESIGN_SUMMARY.md
+UML_EVOLUTION.md
+project_report.md
